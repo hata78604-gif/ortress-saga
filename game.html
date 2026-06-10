@@ -287,13 +287,48 @@ cv.width = VW; cv.height = VH;
 
 const WALL_Y = VH - 70;
 
+const HORIZON_Y = 140;
+
 // 背景の星（固定位置・起動時に一度だけ生成）
 const STARS = Array.from({length: 45}, () => ({
   x: Math.random() * VW,
-  y: Math.random() * VH * 0.58,
+  y: Math.random() * (HORIZON_Y - 12),
   r: Math.random() * 1.4 + 0.3,
   a: Math.random() * 0.5 + 0.25,
   phase: Math.random() * Math.PI * 2,
+}));
+
+// 荒野の装飾（固定位置・起動時に一度だけ生成）
+const MESAS = Array.from({length: 5}, (_, i) => ({
+  x: i * (VW / 5) + Math.random() * 40 - 30,
+  w: 70 + Math.random() * 70,
+  h: 20 + Math.random() * 32,
+}));
+const PATCHES = Array.from({length: 12}, () => ({
+  x: Math.random() * VW,
+  y: HORIZON_Y + 10 + Math.random() * (WALL_Y - HORIZON_Y - 40),
+  rx: 20 + Math.random() * 45,
+  ry: 8 + Math.random() * 16,
+}));
+const CRACKS = Array.from({length: 10}, () => {
+  const pts = [{x: Math.random() * VW, y: HORIZON_Y + 20 + Math.random() * (WALL_Y - HORIZON_Y - 60)}];
+  const n = 3 + Math.floor(Math.random() * 3);
+  for(let i = 0; i < n; i++){
+    const p = pts[pts.length - 1];
+    pts.push({x: p.x + (Math.random() - 0.5) * 46, y: p.y + (Math.random() - 0.3) * 26});
+  }
+  return pts;
+});
+const ROCKS = Array.from({length: 14}, () => ({
+  x: Math.random() * VW,
+  y: HORIZON_Y + 15 + Math.random() * (WALL_Y - HORIZON_Y - 50),
+  r: 2 + Math.random() * 4,
+}));
+const TUFTS = Array.from({length: 18}, () => ({
+  x: Math.random() * VW,
+  y: HORIZON_Y + 15 + Math.random() * (WALL_Y - HORIZON_Y - 50),
+  s: 4 + Math.random() * 4,
+  blades: 3 + Math.floor(Math.random() * 3),
 }));
 
 // ---- HUD refs
@@ -1014,18 +1049,15 @@ function drawDragon(x, y, r){
 function draw(){
   ctx.clearRect(0,0,VW,VH);
 
-  // 夜空の背景グラデーション
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, VH * 0.75);
-  skyGrad.addColorStop(0, '#050308');
-  skyGrad.addColorStop(1, '#100a04');
+  // 荒野の夕暮れ空（地平線に近づくほど砂埃色）
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, HORIZON_Y + 30);
+  skyGrad.addColorStop(0, '#0b0508');
+  skyGrad.addColorStop(0.65, '#2a1408');
+  skyGrad.addColorStop(1, '#4a2810');
   ctx.fillStyle = skyGrad;
-  ctx.fillRect(0, 0, VW, VH);
+  ctx.fillRect(0, 0, VW, HORIZON_Y + 30);
 
-  // 地面エリア
-  ctx.fillStyle = '#0a0804';
-  ctx.fillRect(0, VH * 0.72, VW, VH * 0.28);
-
-  // 星
+  // 星（地平線より上のみ）
   const t = performance.now() / 1000;
   for(const s of STARS){
     ctx.globalAlpha = s.a * (0.65 + 0.35 * Math.sin(t * 0.8 + s.phase));
@@ -1036,10 +1068,57 @@ function draw(){
   }
   ctx.globalAlpha = 1;
 
-  // 薄い石畳グリッド
-  ctx.strokeStyle = 'rgba(180,150,80,0.05)'; ctx.lineWidth = 1;
-  for(let x=0;x<=VW;x+=45){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,VH); ctx.stroke(); }
-  for(let y=0;y<=VH;y+=45){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(VW,y); ctx.stroke(); }
+  // 地平線の遠景（メサの影絵）
+  ctx.fillStyle = '#1c0e06';
+  for(const m of MESAS){
+    ctx.beginPath();
+    ctx.moveTo(m.x, HORIZON_Y);
+    ctx.lineTo(m.x + m.w * 0.18, HORIZON_Y - m.h);
+    ctx.lineTo(m.x + m.w * 0.82, HORIZON_Y - m.h);
+    ctx.lineTo(m.x + m.w, HORIZON_Y);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // 乾いた大地
+  const gGrad = ctx.createLinearGradient(0, HORIZON_Y, 0, VH);
+  gGrad.addColorStop(0, '#3a2410');
+  gGrad.addColorStop(0.25, '#241608');
+  gGrad.addColorStop(1, '#150d04');
+  ctx.fillStyle = gGrad;
+  ctx.fillRect(0, HORIZON_Y, VW, VH - HORIZON_Y);
+
+  // 土のむら
+  ctx.fillStyle = 'rgba(170,115,50,0.06)';
+  for(const p of PATCHES){
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, Math.PI*2); ctx.fill();
+  }
+  // 地面のひび割れ
+  ctx.strokeStyle = 'rgba(10,5,2,0.55)'; ctx.lineWidth = 1.2;
+  for(const c of CRACKS){
+    ctx.beginPath();
+    ctx.moveTo(c[0].x, c[0].y);
+    for(let i = 1; i < c.length; i++) ctx.lineTo(c[i].x, c[i].y);
+    ctx.stroke();
+  }
+  // 岩
+  for(const r of ROCKS){
+    ctx.fillStyle = '#3d2e1a';
+    ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r, r.r*0.7, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(210,165,90,0.25)';
+    ctx.beginPath(); ctx.ellipse(r.x - r.r*0.3, r.y - r.r*0.35, r.r*0.45, r.r*0.3, 0, 0, Math.PI*2); ctx.fill();
+  }
+  // 枯れ草
+  ctx.strokeStyle = 'rgba(150,115,55,0.45)'; ctx.lineWidth = 1;
+  for(const tf of TUFTS){
+    for(let i = 0; i < tf.blades; i++){
+      const a = -Math.PI/2 + (i - (tf.blades - 1) / 2) * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(tf.x, tf.y);
+      ctx.lineTo(tf.x + Math.cos(a) * tf.s, tf.y + Math.sin(a) * tf.s * 1.6);
+      ctx.stroke();
+    }
+  }
 
   if(state==='menu') return;
 
