@@ -118,6 +118,17 @@
     border-color:#c8a93a;
     box-shadow:0 0 24px rgba(200,169,58,0.35);
   }
+  .card.selected, .card.selected:hover {
+    border-color:#e07830;
+    box-shadow:0 0 28px rgba(224,120,48,0.55);
+    background: linear-gradient(135deg, rgba(90,55,20,0.95), rgba(45,25,8,0.95));
+  }
+  .lu-decide:disabled {
+    opacity:0.35;
+    pointer-events:none;
+    cursor:default;
+    box-shadow:none;
+  }
   .card .ic { font-size:30px; width:42px; text-align:center; }
   .card .body h3 { font-family:'Cinzel',serif; font-size:15px; font-weight:700; letter-spacing:1px; }
   .card .body p { font-size:13px; color:#a89060; margin-top:3px; line-height:1.3; }
@@ -241,6 +252,7 @@
       <div class="lu-title">LEVEL UP</div>
       <div class="lu-sub">強化を1つ選べ</div>
       <div class="cards" id="cards"></div>
+      <button class="btn lu-decide" id="decideBtn" disabled>DECISION</button>
     </div>
 
     <!-- Start -->
@@ -295,6 +307,7 @@ const levelupEl = document.getElementById('levelup');
 const luTitleEl = levelupEl.querySelector('.lu-title');
 const luSubEl   = levelupEl.querySelector('.lu-sub');
 const cardsEl = document.getElementById('cards');
+const decideBtn = document.getElementById('decideBtn');
 const startScreen = document.getElementById('startScreen');
 const overScreen = document.getElementById('overScreen');
 const goTitle = document.getElementById('goTitle');
@@ -383,18 +396,16 @@ const UPGRADES = [
     apply:p=>{ p.fireRate *= 0.85; } },
   { id:'dmg', icon:'⚔️', name:'力の祈り', desc:'攻撃力 +6', max:8,
     apply:p=>{ p.damage += 6; } },
-  { id:'multi', icon:'🎯', name:'分岐の矢術', desc:'同時発射数 +1', max:5,
+  { id:'multi', icon:'🎯', name:'分岐の矢術', desc:'同時発射数 +1', max:2,
     apply:p=>{ p.multishot += 1; } },
-  { id:'pierce', icon:'🗡️', name:'穿甲の一射', desc:'弾が敵を1体多く貫通', max:4,
-    apply:p=>{ p.bulletPierce += 1; } },
   { id:'speed', icon:'💨', name:'飛翔の加護', desc:'弾のスピード +25%', max:4,
     apply:p=>{ p.bulletSpeed *= 1.25; } },
   { id:'turret', icon:'🏰', name:'守護の砲台', desc:'城壁に自動で撃つ砲台 +1', max:5,
     apply:p=>{ p.turretCount += 1; p.turretCd.push(0); } },
   { id:'nova', icon:'✨', name:'魔爆陣', desc:'全方位魔法弾を定期発射/強化', max:5,
     apply:p=>{ p.novaLevel += 1; } },
-  { id:'hp', icon:'🛡️', name:'城壁強化', desc:'城壁の耐久 +30 & 全回復', max:6,
-    apply:p=>{ p.maxhp += 30; p.hp = p.maxhp; } },
+  { id:'hp', icon:'🛡️', name:'城壁強化', desc:'城壁の耐久 +30 & 30%回復', max:6,
+    apply:p=>{ p.maxhp += 30; p.hp = Math.min(p.maxhp, p.hp + p.maxhp*0.3); } },
 ];
 let upgradeCounts = {};
 
@@ -511,12 +522,26 @@ function openLevelUp(){
     div.innerHTML = `<div class="ic">${u.icon}</div>
       <div class="body"><h3>${u.name}</h3><p>${u.desc}</p></div>
       <div class="lvtag">Lv ${cur}→${cur+1}</div>`;
-    div.onclick = ()=> chooseUpgrade(u);
+    div.onclick = ()=> selectCard(u, div);
     cardsEl.appendChild(div);
   });
   kbIndex = 0;
+  selectedUpgrade = null;
+  decideBtn.disabled = true;
   levelupEl.classList.add('show');
 }
+
+let selectedUpgrade = null;
+
+function selectCard(u, div){
+  selectedUpgrade = u;
+  [...cardsEl.children].forEach(c=> c.classList.toggle('selected', c===div));
+  decideBtn.disabled = false;
+}
+
+decideBtn.onclick = ()=>{
+  if(selectedUpgrade) chooseUpgrade(selectedUpgrade);
+};
 
 function chooseUpgrade(u){
   u.apply(player);
@@ -551,7 +576,6 @@ function openStatus(){
     ['連射', rate+' /s'],
     ['弾速', Math.round(player.bulletSpeed)],
     ['同時発射', player.multishot],
-    ['貫通', player.bulletPierce],
     ['砲台数', player.turretCount],
     ['魔爆陣', player.novaLevel],
     ['城壁耐久', Math.ceil(player.hp)+'/'+player.maxhp],
@@ -590,7 +614,11 @@ window.addEventListener('keydown', e=>{
     const cards = [...cardsEl.children];
     if(e.key==='ArrowDown'||e.key==='ArrowRight'){ kbIndex=(kbIndex+1)%cards.length; }
     else if(e.key==='ArrowUp'||e.key==='ArrowLeft'){ kbIndex=(kbIndex-1+cards.length)%cards.length; }
-    else if(e.key==='Enter'||e.key===' '){ cards[kbIndex].click(); return; }
+    else if(e.key==='Enter'||e.key===' '){
+      if(cards[kbIndex].classList.contains('selected')) decideBtn.click();
+      else cards[kbIndex].click();
+      return;
+    }
     cards.forEach((c,i)=>c.classList.toggle('kbsel', i===kbIndex));
   }
 });
